@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script type="text/javascript" src="./js/users.js"></script>
+  <!-- <link rel="stylesheet" href="style.css" /> -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assignment</title>
+
+  <style>
+    h1 {
+      text-align: center;
+    }
+
+    table,
+    th,
+    td {
+      border: 1px solid black;
+    }
+
+    #users {
+      margin-bottom: 20px;
+    }
+
+    #btnExportToCsv {
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Here a loader is created which
+			loads till response comes -->
+  <div class="d-flex justify-content-center">
+    <div class="spinner-border" role="status" id="loading">
+      <span class="sr-only">Loading...</span>
+    </div>
+  </div>
+  <h1>Users</h1>
+  <!-- table for showing data -->
+  <table id="users"></table>
+
+  <button id="btnExportToCsv" type="button" class="button">Download CSV file</button>
+  <script>
+
+
+
+    const fs = require('fs');
+    const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+    console.log(data);
+
+    const csvWriter = createCsvWriter({
+      path: './users.csv',
+      headerIdDelimiter: '.',
+      // header: []
+    });
+
+    async function main() {
+      try {
+        await csvWriter.writeRecords(data.forecast.forecastday[0].hour);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+
+    main();
+
+
+
+    // 💥 Code for downloading csv file
+
+
+
+
+    const dataTable = document.getElementById("users");
+    const btnExportToCsv = document.getElementById("btnExportToCsv");
+
+    btnExportToCsv.addEventListener("click", () => {
+      const exporter = new TableCSVExporter(dataTable);
+      const csvOutput = exporter.convertToCSV();
+      const csvBlob = new Blob([csvOutput], { type: "text/csv" });
+      const blobUrl = URL.createObjectURL(csvBlob);
+      const anchorElement = document.createElement("a");
+
+      anchorElement.href = blobUrl;
+      anchorElement.download = "table-export.csv";
+      anchorElement.click();
+
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 1000);
+    });
+  </script>
+  <script src="./js/csv_export.js"></script>
+</body>
+
+</html>
