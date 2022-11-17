@@ -1,33 +1,25 @@
-const fs =  require("fs");
+const fs = require("fs");
 const dotenv = require('dotenv')
 const express = require('express');
-const csv = require("@pinemach/csv");
 const csvjson = require("csvjson");
 const axios = require('axios');
-const writeCSV = require('write-csv')
-const stringify = require('csv-stringify');
-const parse = require('csv-parse');
 const csv_parser = require('csv-parser');
 
 const ps = require('prompt-sync')
 const prompt = ps();
 
-// const path = require('path');
+const objToCsv = require('obj-csv');
 
 const app = express();
 
-// import {data} from './public/js/users.js';
-const { data } = require('./public/js/users.js');
 
 dotenv.config();
 
-// import { data } from './users.js'
 
 app.use(express.static(__dirname + '/public'));
 // app.use('/public', express.static('public'));
 
 app.get('/', (req, res) => {
-  // res.sendFile('index.html');
   res.sendFile('index.html')
 });
 
@@ -39,7 +31,7 @@ const fetchData = () => {
   return new Promise((resolve, reject) => {
     const fetch_data = axios.get(api);
 
-    if (fetch_data) { 
+    if (fetch_data) {
       resolve(fetch_data);
       return;
     }
@@ -48,62 +40,88 @@ const fetchData = () => {
   });
 };
 
+// 💥 Writng and Appending data in CSV files
 
-// Method 1 to write csv file -
+const n = prompt(`Enter no of users: `);
+let count = 0;
 
-let writeCsv = () => {
-  fetchData()
-    .then((apiData) => {
+let stopinterval = () => {
+  clearInterval(interval); // Stop the interval if the condition holds true
+}
+// let interval = setInterval(function () { writeCsv(); stopinterval(count); }, 1000);
 
-      let csvData = csvjson.toCSV(apiData.data, {
-        headers: "key",
-      });
+let interval = setInterval(
+  function writeCsv() {
+    if (count > n) {
+      stopinterval(interval); // Stop the interval if the condition holds true
+    }
+    else {
+      count++;
+    }
 
-      fs.writeFileSync("./users.csv", csvData); // Writing csv data in users.csv
-    })
-    .catch((message) => {
-      console.log(message);
-    });
-};
-writeCsv();
+    if (fs.existsSync("./users.csv")) {
+      fetchData()
+        .then((apiData) => {
+          let csvData = csvjson.toCSV(apiData.data, {
+            headers: "key",
+          });
 
+          fs.appendFileSync("users.csv", csvData);
+        })
+        .catch((message) => {
+          console.log(message);
+        });
+    }
+    else {
+      fetchData()
+        .then((apiData) => {
 
-//  Method 2 to write csv file - 
+          let csvData = csvjson.toCSV(apiData.data, {
+            headers: "key",
+          });
 
+          fs.writeFileSync("users.csv", csvData); // Writing csv data in users.csv
+        })
+        .catch((message) => {
+          console.log(message);
+        });
+    }
+  }, 1000
+);
 
-// const path = __dirname + "/users.csv";
-// fs.writeFileSync(path, csv.write(data));
-
-
-
-// Method 3 to write csv file
-
-// stringify(data, {
-//   header: true
-// }, function (err, output) {
-//   fs.writeFile(__dirname+'/users.csv', output);
-// })
-
-
-
-// Method - 4 to write csv file
-// fs.writeFile("users.csv", data, "utf-8", (err) => {
-//   if (err) console.log(err);
-//   else console.log("Data saved");
-// });
-
+// writeCsv();
 
 // 💥 sort data
+const storedArray = [];
+
 const filterData = () => {
-  const fileData = fs.readFileSync("./users.csv", { encoding: "utf-8" });
+  fs.createReadStream('./users.csv')
+    .pipe(csv_parser({}))
+    .on('data', (data) => storedArray.push(data))  //push data into javascript object
+    .on('end', () => {
+      let x = 0;
+      for (let x in storedArray) { } //count number of users in csv file
 
-  const arrayString = fileData.split("\n");
+      // sorting are done here by changing values
+      for (let i = 0; i < x; i++) {
+        if (storedArray[i].username > storedArray[i + 1].username) {
+          let temp = storedArray[i];
+          storedArray[i] = storedArray[i + 1];
+          storedArray[i + 1] = temp;
+          i = -1;
+        }
+      }
 
-  arrayString.forEach((element) => {
-    let property = element.split(",");
+      // module converts javascript object into csv format
+      objToCsv(storedArray, ['id', 'uid', 'password', 'first_name', 'last_name', 'username', 'email', 'avatar', 'gender', 'phone_number', 'social_insurance_number', 'date_of_birth','address'], function (err, file) {
 
-    fs.writeFileSync("./users-sorted.csv", property[1] + "\n", { flag: "a" });
-  });
+        // after converting write file into sorted_users.csv file in utf-8 format encoding
+        fs.writeFileSync('.users_sorted.csv', file, 'utf-8', err => {
+          if (err)
+            console.log('something went wrong')
+        })
+      });
+    });
 };
 
 filterData();
@@ -111,69 +129,46 @@ filterData();
 
 
 
-// 💥 find user by id and user_name -
-const findUser = (id) => {
-  const csvFileData = fs.readFileSync("./users.csv",  { encoding: "utf-8" });
-  const toJson = csvjson.toObject(csvFileData);
+// 💥 find user by id or user_name -
 
-  const result = toJson.filter((user)=>{
-    return id.toString() === user.id;
-  })
-  return result;
-  
-}
-findUser(1);
+const result = [];
+let flag = false;
 
-
-fs.createReadStream('../csv_files/users.csv')
+fs.createReadStream('./users.csv')
   .pipe(csv_parser({}))
-  .on('data', (data) => results.push(data))
+  .on('data', (data) => result.push(data))
   .on('end', () => {
-    console.log('The List of userName you can search for : ');
+    console.log('username of users: ');
 
-    for (var x in results)
-      console.log(results[x].username);
+    for (let x in result)
+      console.log(result[x].username);
 
     // take input from real-time user for username search
-    let input = prompt('Enter the username of the person and search data related to it : ');
+    let input = prompt('Enter the username of user ');
 
     // search the username in csv file and output it's all data
-    for (var x in results) {
-      if (results[x].username == input) {
-        console.log(`You Enter the name is ${input} and the data is : `);
-        console.log(results[x]);
+    for (let x in result) {
+      if (result[x].username == input) {
+        console.log(result[x]);
         flag = true;
         break;
       }
     }
 
     if (flag == false)
-      console.log('looks like you entered the invalid username!');
+      console.log('invalid username!');
   });
 
 
-
-// Read CSV File -
-
-// Method - 1
-
-// var parser = parse({ columns: true }, function (err, records) {
-//   console.log(records);
-// });
-
-// fs.createReadStream(__dirname + '/users.csv').pipe(parser);
-
-
-// Method - 2
-// fs.createReadStream("users.csv", { encoding: "utf-8" })
-//   .on("data", (chunk) => {
-//     console.log(chunk);
-//   })
-//   .on("error", (error) => {
-//     console.log(error);
-//   });
-
-
+/*💥 To delete file -
+const deletefile = ()=>{
+  const del = prompt(`Press 1 if you want to delete csv file created for again execution of code`);
+  if(del == 1){
+    fs.unlinkSync("users.csv");
+  }
+};
+deletefile();
+*/
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
